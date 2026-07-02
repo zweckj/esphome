@@ -25,7 +25,6 @@ CONF_ROLE = "role"
 CONF_MODBUS_ID = "modbus_id"
 CONF_SEND_WAIT_TIME = "send_wait_time"
 CONF_TURNAROUND_TIME = "turnaround_time"
-CONF_DEDICATED_TASK = "dedicated_task"
 
 MODBUS_ROLES = ["client", "server"]
 
@@ -53,9 +52,6 @@ CONFIG_SCHEMA = cv.typed_schema(
             {
                 cv.GenerateID(): cv.declare_id(ModbusServer),
                 cv.Optional(CONF_FLOW_CONTROL_PIN): pins.gpio_output_pin_schema,
-                # ESP32-only: service the bus from a dedicated high-priority FreeRTOS task instead of the
-                # main loop, so responses meet a polling controller's tight timing (e.g. Hoermann HCP).
-                cv.Optional(CONF_DEDICATED_TASK): cv.All(cv.boolean, cv.only_on_esp32),
                 # Remove before 2026.10.0
                 cv.Optional(CONF_DISABLE_CRC): cv.invalid(
                     "'disable_crc' has been removed. The parser no longer requires it — remove this option."
@@ -84,9 +80,6 @@ async def to_code(config):
     if config[CONF_ROLE] == "client":
         cg.add(var.set_send_wait_time(config[CONF_SEND_WAIT_TIME]))
         cg.add(var.set_turnaround_time(config[CONF_TURNAROUND_TIME]))
-    elif config[CONF_ROLE] == "server":
-        if config.get(CONF_DEDICATED_TASK):
-            cg.add(var.set_dedicated_task(True))
 
 
 def modbus_device_schema(default_address, role: Literal["client", "server"] = "client"):

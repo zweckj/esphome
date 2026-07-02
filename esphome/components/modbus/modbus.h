@@ -13,11 +13,6 @@
 #include <deque>
 #include <optional>
 
-#ifdef USE_ESP32
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#endif
-
 namespace esphome::modbus {
 
 static constexpr uint16_t MODBUS_TX_BUFFER_SIZE = 15;
@@ -135,14 +130,6 @@ class ModbusServerHub : public Modbus {
   ModbusServerHub() = default;
   void dump_config() override;
   void register_device(ModbusServerDevice *device) { this->devices_.push_back(device); }
-#ifdef USE_ESP32
-  void setup() override;
-  void loop() override;
-  // Service the bus from a dedicated high-priority task (ESP32 only) instead of the shared main loop, so a
-  // polling controller's tight response window is met regardless of what other components are doing. Required
-  // by timing-sensitive controllers such as the Hoermann HCP door bus.
-  void set_dedicated_task(bool dedicated_task) { this->dedicated_task_ = dedicated_task; }
-#endif
 
  protected:
   void parse_modbus_frames() override;
@@ -160,11 +147,6 @@ class ModbusServerHub : public Modbus {
   void send_raw_(const uint8_t *payload, uint16_t len);
   void send_exception_(uint8_t address, uint8_t function_code, ModbusExceptionCode exception_code);
   void send_response_(uint8_t address, uint8_t function_code, const uint8_t *payload, uint16_t payload_len);
-#ifdef USE_ESP32
-  static void service_task_(void *params);
-  TaskHandle_t task_handle_{nullptr};
-  bool dedicated_task_{false};
-#endif
   uint8_t expecting_peer_response_{0};
   std::vector<ModbusServerDevice *> devices_;
 

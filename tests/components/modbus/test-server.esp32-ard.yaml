@@ -1,7 +1,0 @@
-packages:
-  uart: !include ../../test_build_components/common/uart/esp32-ard.yaml
-
-modbus:
-  id: mod_bus_server
-  role: server
-  dedicated_task: true

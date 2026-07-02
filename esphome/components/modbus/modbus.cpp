@@ -624,43 +624,6 @@ void ModbusClientHub::dump_config() {
                 this->long_rx_buffer_delay_ms_);
   LOG_PIN("  Flow Control Pin: ", this->flow_control_pin_);
 }
-#ifdef USE_ESP32
-// The server is serviced from a task pinned to the application core at a high priority so a polling
-// controller's tight response window is met regardless of what the main loop is doing.
-static constexpr uint32_t MODBUS_SERVER_TASK_STACK_SIZE = 4096;
-static constexpr UBaseType_t MODBUS_SERVER_TASK_PRIORITY = 19;
-#ifdef CONFIG_FREERTOS_UNICORE
-static constexpr BaseType_t MODBUS_SERVER_TASK_CORE = 0;
-#else
-static constexpr BaseType_t MODBUS_SERVER_TASK_CORE = 1;
-#endif
-
-void ModbusServerHub::setup() {
-  Modbus::setup();
-  if (this->dedicated_task_) {
-    xTaskCreatePinnedToCore(&ModbusServerHub::service_task_, "modbus_server", MODBUS_SERVER_TASK_STACK_SIZE, this,
-                            MODBUS_SERVER_TASK_PRIORITY, &this->task_handle_, MODBUS_SERVER_TASK_CORE);
-  }
-}
-
-void ModbusServerHub::loop() {
-  // When the dedicated task owns the bus, the main loop must not touch the UART or the rx buffer.
-  if (this->task_handle_ != nullptr)
-    return;
-  Modbus::loop();
-}
-
-void ModbusServerHub::service_task_(void *params) {
-  auto *self = static_cast<ModbusServerHub *>(params);
-  while (true) {
-    self->receive_bytes_();
-    self->parse_modbus_frames();
-    // Yield one tick. With the 1 kHz FreeRTOS tick used by the Arduino framework this bounds the service
-    // latency to roughly 1 ms.
-    vTaskDelay(1);
-  }
-}
-#endif  // USE_ESP32
 
 void ModbusServerHub::dump_config() {
   ESP_LOGCONFIG(TAG,
@@ -669,9 +632,6 @@ void ModbusServerHub::dump_config() {
                 "  Long Rx Buffer Delay: %" PRIu16 " ms",
                 this->frame_delay_ms_, this->long_rx_buffer_delay_ms_);
   LOG_PIN("  Flow Control Pin: ", this->flow_control_pin_);
-#ifdef USE_ESP32
-  ESP_LOGCONFIG(TAG, "  Dedicated task: %s", YESNO(this->dedicated_task_));
-#endif
 }
 
 float Modbus::get_setup_priority() const {
